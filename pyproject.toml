@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "financetrace"
+version = "0.1.0"
+description = "Daily aggregator of US macro and sentiment indicators that produces an overall market-direction reading."
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "beautifulsoup4>=4.12",
+]
+
+[project.scripts]
+financetrace = "financetrace.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["financetrace*"]
