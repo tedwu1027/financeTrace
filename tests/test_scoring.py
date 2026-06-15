@@ -1,5 +1,6 @@
 from datetime import date
 
+from financetrace.html_report import render_html
 from financetrace.report import render_markdown
 from financetrace.scoring import aggregate
 from financetrace.sources.base import IndicatorResult, Lean
@@ -64,3 +65,20 @@ def test_markdown_renders_without_crashing():
     assert "# financeTrace daily" in md
     assert "Indicators with errors" in md
     assert "boom" in md
+
+
+def test_html_renders_with_healthy_and_errored_sections():
+    results = [
+        _res("ten-two", Lean.BULL, 50),
+        _res("buffett", Lean.STRONG_BEAR, -100),
+        IndicatorResult.errored("missing-key", "https://example.com", "no key"),
+    ]
+    html = render_html(results, aggregate(results), date(2026, 6, 13))
+    assert "<!doctype html>" in html
+    assert "financeTrace" in html
+    assert "Indicators" in html
+    assert "Unavailable" in html
+    # Verdict and badges should render labels
+    assert "Strong Bear" in html or "Bull" in html
+    # The error message itself should be visible in the unavailable card
+    assert "no key" in html

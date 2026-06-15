@@ -10,6 +10,8 @@ venv/
 .ruff_cache/
 reports/*.md
 reports/*.json
+reports/*.html
 !reports/.gitkeep
 data/*.sqlite
 data/*.db
+site/

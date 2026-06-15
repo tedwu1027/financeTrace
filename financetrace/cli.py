@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import sys
 from datetime import date
+from pathlib import Path
 
 from financetrace.config import REPORT_DIR
+from financetrace.html_report import render_html
 from financetrace.report import render_json, render_markdown, write_reports
 from financetrace.scoring import aggregate
 from financetrace.sources.aaii import aaii_sentiment
@@ -63,6 +65,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print JSON to stdout instead of the markdown table.",
     )
+    parser.add_argument(
+        "--site-dir",
+        default="site",
+        help="Directory to write the dashboard's index.html / latest.json into (default: ./site).",
+    )
     args = parser.parse_args(argv)
 
     today = date.today()
@@ -71,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
 
     md = render_markdown(results, verdict, today)
     js = render_json(results, verdict, today)
+    html_body = render_html(results, verdict, today)
 
     if args.json_only:
         sys.stdout.write(js + "\n")
@@ -78,6 +86,11 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(md)
 
     if not args.no_write:
-        md_path, json_path = write_reports(REPORT_DIR, md, js, today)
-        sys.stderr.write(f"\nwrote {md_path}\nwrote {json_path}\n")
+        paths = write_reports(
+            REPORT_DIR, md, js, today,
+            html_body=html_body,
+            site_dir=Path(args.site_dir),
+        )
+        for label, path in paths.items():
+            sys.stderr.write(f"wrote [{label}] {path}\n")
     return 0 if verdict.contributing > 0 else 1

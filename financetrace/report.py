@@ -81,13 +81,36 @@ def render_json(results: list[IndicatorResult], verdict: Verdict, asof: date) ->
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
-def write_reports(report_dir: Path, md: str, js: str, asof: date) -> tuple[Path, Path]:
+def write_reports(
+    report_dir: Path,
+    md: str,
+    js: str,
+    asof: date,
+    html_body: str | None = None,
+    site_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Persist the daily artifacts. `site_dir`, if given, also gets an
+    index.html (latest snapshot) and archive/<date>.html so a GitHub Pages
+    deployment can publish the dir directly.
+    """
     report_dir.mkdir(parents=True, exist_ok=True)
-    md_path = report_dir / f"{asof.isoformat()}.md"
-    json_path = report_dir / f"{asof.isoformat()}.json"
-    md_path.write_text(md, encoding="utf-8")
-    json_path.write_text(js, encoding="utf-8")
-    return md_path, json_path
+    paths: dict[str, Path] = {}
+    paths["md"] = report_dir / f"{asof.isoformat()}.md"
+    paths["json"] = report_dir / f"{asof.isoformat()}.json"
+    paths["md"].write_text(md, encoding="utf-8")
+    paths["json"].write_text(js, encoding="utf-8")
+    if html_body is not None:
+        paths["html"] = report_dir / f"{asof.isoformat()}.html"
+        paths["html"].write_text(html_body, encoding="utf-8")
+        if site_dir is not None:
+            site_dir.mkdir(parents=True, exist_ok=True)
+            archive = site_dir / "archive"
+            archive.mkdir(parents=True, exist_ok=True)
+            (site_dir / "index.html").write_text(html_body, encoding="utf-8")
+            (archive / f"{asof.isoformat()}.html").write_text(html_body, encoding="utf-8")
+            (site_dir / "latest.json").write_text(js, encoding="utf-8")
+            paths["site_index"] = site_dir / "index.html"
+    return paths
 
 
 def _fmt_value(v: float | None) -> str:
