@@ -53,31 +53,31 @@ A simple cron entry (replace paths):
 30 14 * * 1-5 cd /path/to/financeTrace && /path/to/.venv/bin/financetrace >> logs/daily.log 2>&1
 ```
 
-Or as a GitHub Actions workflow (sketch — runs at 14:30 UTC each weekday):
+The included `.github/workflows/daily.yml` runs at 14:30 UTC every day,
+publishes the dashboard to GitHub Pages, and (if Gmail secrets are set)
+emails the rendered report.
 
-```yaml
-name: daily-report
-on:
-  schedule:
-    - cron: "30 14 * * 1-5"
-  workflow_dispatch:
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: pip install -e .
-      - env:
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
-        run: financetrace
-      - uses: actions/upload-artifact@v4
-        with:
-          name: report
-          path: reports/
-```
+### Repo secrets needed
+
+| Secret | Used for | Required |
+|---|---|---|
+| `FRED_API_KEY` | FRED data fetchers | yes (else all FRED indicators are unavailable) |
+| `EIA_API_KEY` | EIA SPR fetcher | yes (else SPR is unavailable) |
+| `GMAIL_USER` | SMTP from-address | only if you want email delivery |
+| `GMAIL_APP_PASSWORD` | SMTP auth | only if you want email delivery |
+
+`GMAIL_APP_PASSWORD` is **not** your normal Google password — generate
+an app-specific password at https://myaccount.google.com/apppasswords
+(requires 2-Step Verification enabled on your Google account). The
+workflow sends to `tedwu1027@gmail.com`; edit `to:` in `daily.yml` to
+change the recipient.
+
+### Publishing to GitHub Pages
+
+Repo Settings → Pages → Source = **GitHub Actions**. The first
+workflow run will publish `site/index.html` (latest dashboard) at
+`https://<owner>.github.io/<repo>/` and archive each day's snapshot
+under `archive/<date>.html`.
 
 ## Tests
 

@@ -1,8 +1,8 @@
 name: daily-report
 on:
   schedule:
-    # 14:30 UTC weekdays — ~10:30 ET, after US cash open
-    - cron: "30 14 * * 1-5"
+    # 14:30 UTC daily — ~22:30 Taipei, ~10:30 ET (after US cash open).
+    - cron: "30 14 * * *"
   workflow_dispatch:
 
 permissions:
@@ -37,6 +37,47 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+
+      - name: Resolve latest report metadata
+        id: report
+        run: |
+          set -euo pipefail
+          LATEST_HTML=$(ls -t reports/*.html 2>/dev/null | head -1)
+          LATEST_JSON=$(ls -t reports/*.json 2>/dev/null | head -1)
+          if [ -z "$LATEST_HTML" ] || [ -z "$LATEST_JSON" ]; then
+            echo "no report files found" >&2
+            exit 1
+          fi
+          VERDICT=$(jq -r '.verdict.label' "$LATEST_JSON")
+          SCORE=$(jq -r '.verdict.score | tostring | .[:6]' "$LATEST_JSON")
+          ASOF=$(jq -r '.asof' "$LATEST_JSON")
+          CONTRIB=$(jq -r '"\(.verdict.contributing)/\(.verdict.total)"' "$LATEST_JSON")
+          {
+            echo "html=$LATEST_HTML"
+            echo "json=$LATEST_JSON"
+            echo "asof=$ASOF"
+            echo "verdict=$VERDICT"
+            echo "score=$SCORE"
+            echo "contrib=$CONTRIB"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Email report
+        if: env.GMAIL_USER != ''
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: financeTrace <${{ secrets.GMAIL_USER }}>
+          to: tedwu1027@gmail.com
+          subject: "financeTrace ${{ steps.report.outputs.asof }} — ${{ steps.report.outputs.verdict }} (${{ steps.report.outputs.score }})"
+          html_body: file://${{ steps.report.outputs.html }}
+          attachments: "${{ steps.report.outputs.html }},${{ steps.report.outputs.json }}"
+          convert_markdown: false
 
   deploy:
     needs: build
