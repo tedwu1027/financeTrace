@@ -1,8 +1,29 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Protocol
+
+
+_REDACT_PATTERNS = [
+    # api_key=XXXX, api-key=XXXX, &key=XXXX in query strings
+    re.compile(r"(?i)(api[_-]?key=)[^&\s\"'<>]+"),
+    re.compile(r"(?i)([?&]key=)[^&\s\"'<>]+"),
+]
+
+
+def redact_secrets(text: str) -> str:
+    """Strip api-key style tokens out of strings before they get persisted.
+
+    Applied to error messages so a transient HTTP failure cannot leak the
+    user's API key into reports, JSON snapshots, or workflow logs.
+    """
+    if not text:
+        return text
+    for pat in _REDACT_PATTERNS:
+        text = pat.sub(r"\1<redacted>", text)
+    return text
 
 
 class Lean(str, Enum):
@@ -46,16 +67,17 @@ class IndicatorResult:
 
     @classmethod
     def errored(cls, name: str, source_url: str, error: str, weight: float = 1.0) -> "IndicatorResult":
+        safe = redact_secrets(error)
         return cls(
             name=name,
             value=None,
             asof=None,
             lean=Lean.UNKNOWN,
             score=0.0,
-            notes=f"unavailable: {error}",
+            notes=f"unavailable: {safe}",
             source_url=source_url,
             weight=weight,
-            error=error,
+            error=safe,
         )
 
 
